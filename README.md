@@ -1,1 +1,1 @@
-# PokeVAE
+# VAE
