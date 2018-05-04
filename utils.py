@@ -1,4 +1,3 @@
-import model
 from model import *
 
 
@@ -18,8 +17,29 @@ class MultiSet(Utils.Dataset):
         data = cv2.resize(data, (RESIZE,RESIZE))/255
         return data
 
+    
+def gen_data_list():
+    if not os.path.isfile('pokelist'):
+        if os.path.exists('./Pokemon') and os.path.exists('./PokemonFlip'):
+            with open("pokelist", 'w') as myfile:
+                wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
+                data = [os.path.abspath("./Pokemon/")+"/"+file for file in os.listdir("./Pokemon/")]
+                data += [os.path.abspath("./PokemonFlip/")+"/"+file for file in os.listdir("./PokemonFlip/")]
+                wr.writerow(data)
+            print("Generated list of Pokemon image paths, both normal and flipped")
+        elif os.path.exists('./Pokemon'):
+            with open("pokelist", 'w') as myfile:
+                wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
+                data = [os.path.abspath("./Pokemon/")+"/"+file for file in os.listdir("./Pokemon/")]
+                wr.writerow(data)
+            print("Generated list of Pokemon image paths")
+        else:
+            print("Missing Pokemon folder with images")
+    else:
+        print("Pokemon image list available")
+    
 
-def load_checkpoint(filename, LR, cycle_length):
+def load_checkpoint(filename, LR):
     '''
     Loading function for the model before and during training
     From a checkpoint file, it loads and returns all necessary data (mode, optimiser, epoch number, losses)
@@ -44,7 +64,7 @@ def load_checkpoint(filename, LR, cycle_length):
     cs = checkpoint['cs']
     optimizer = optim.Adam(net.parameters(), lr=LR, amsgrad=True)
     optimizer.load_state_dict(checkpoint['optimizer'])
-    scheduler = SGDRScheduler(optimizer, min_lr=1e-5, max_lr=LR, cycle_length=cycle_length, current_step=cs)
+    scheduler = SGDRScheduler(optimizer, min_lr=1e-5, max_lr=LR, cycle_length=500, current_step=cs)
     
     print("Loaded checkpoint:", filename)
     return net, epoch, losses, bces, kls, optimizer, scheduler
@@ -53,6 +73,7 @@ def load_checkpoint(filename, LR, cycle_length):
 def multi_plot(images, model, ROW=4, COL=4):
     """
     To plot an array of images
+    Need batch size of row*col and a screen
     input: batch of image arrays
     """
     try:
@@ -67,7 +88,7 @@ def multi_plot(images, model, ROW=4, COL=4):
                 axarr[2*row+1,col].imshow(x_out.data.cpu().squeeze().numpy())
         plt.show()
     except:
-        print("Could not plot array of images.\nPossibly need to increase batch size or there is not screen available.")
+        pass
 
 
 def criterion(x_out, target, z_mean, z_logvar, alpha=1, beta=20):
@@ -100,7 +121,7 @@ def train(model, optimizer, scheduler, dataloader, epoch, label, losses, bces, k
             bces.append(bce.item())
             kls.append(kl.item())
             
-            if epoch % 10 == 0 and epoch != 0:
+            if epoch%10 == 0 and epoch != 0:
                 save_file = "checkpoints/" + label + "_epoch_{:06d}".format(epoch) + '.pth'
                 torch.save({
                     'epoch': epoch,
@@ -111,6 +132,7 @@ def train(model, optimizer, scheduler, dataloader, epoch, label, losses, bces, k
                     'kls' : kls,
                     'cs' : step
                 }, save_file)
+                print("Saved checkpoint")
                 
             step += 1
         epoch += 1

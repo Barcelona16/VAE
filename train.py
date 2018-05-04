@@ -1,46 +1,42 @@
-if not os.path.isfile('pokelist'):
-    if os.path.exists('./Pokemon') and os.path.exists('./PokemonFlip'):
-        with open("pokelist", 'w') as myfile:
-            wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
-            data = [os.path.abspath("./Pokemon/")+"/"+file for file in os.listdir("./Pokemon/")]
-            data += [os.path.abspath("./PokemonFlip/")+"/"+file for file in os.listdir("./PokemonFlip/")]
-            wr.writerow(data)
-        print("Generated list of Pokemon image paths, both normal and flipped")
-    elif os.path.exists('./Pokemon'):
-        with open("pokelist", 'w') as myfile:
-            wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
-            data = [os.path.abspath("./Pokemon/")+"/"+file for file in os.listdir("./Pokemon/")]
-            wr.writerow(data)
-        print("Generated list of Pokemon image paths")
-    else:
-        print("Missing Pokemon folder with images")
-else:
-    print("Pokemon image list available")
+import argparse
+from utils import *
 
+parser = argparse.ArgumentParser(description='PyTorch VAE Training')
+parser.add_argument('--data', default='pokemon', help='Dataset name')
+parser.add_argument('--epochs', '-e', default=5000, type=int, help='Total epochs to run (default: 5000)')
+parser.add_argument('--batch_size', '-bs', default=256, type=int, help='Mini-batch size (default: 256)')
+parser.add_argument('--learn_rate', '-lr', default=1e-3, type=int, help='Learning rate (default: 1e-3)')
+parser.add_argument('--label', '-l', default='VAE', help='Experiment name', type=str)
+parser.add_argument('--checkpoint', '-cp', default=None, type=str, help='Checkpoint name')
+  
 
+def main():
+    args = parser.parse_args()
+    
+    gen_data_list()
+    
+    try:
+        net, epoch, losses, bces, kls, optimizer, scheduler = load_checkpoint("./checkpoints/" + args.checkpoint, args.learn_rate)
+    except:
+        net = Net() # Initialize model
+        if torch.cuda.is_available():
+            if torch.cuda.device_count() > 1:
+                net = torch.nn.DataParallel(net)
+            net = net.cuda() 
+        epoch = 0
+        losses = []
+        bces = []
+        kls = []
+        optimizer = optim.Adam(net.parameters(), lr=args.learn_rate, amsgrad=True)
+        scheduler = SGDRScheduler(optimizer, min_lr=1e-5, max_lr=args.learn_rate, cycle_length=500, current_step=0)
+        print("Starting new training")
+
+    multiSet = MultiSet(args.data)
+    dataLoader = Utils.DataLoader(dataset=multiSet, shuffle=True, batch_size=args.batch_size)
+
+    train_losses, bces, kls = train(net, optimizer, scheduler, dataLoader, epoch, args.label, losses, bces, kls, args.epochs)
+    print("Training completed!")
 
     
-try:
-    net, epoch, losses, bces, kls, optimizer = load_checkpoint("./checkpoints/")
-except:
-    net = Net() # Initialize model
-    if torch.cuda.is_available():
-        if torch.cuda.device_count() > 1:
-            net = torch.nn.DataParallel(net)
-        net = net.cuda() 
-    epoch = 0
-    losses = []
-    bces = []
-    kls = []
-    optimizer = optim.Adam(net.parameters(), lr=0.001, amsgrad=True)
-    scheduler = SGDRScheduler(optimizer, min_lr=1e-5, max_lr=1e-3, cycle_length=500, current_step=0)
-    print("Starting new training")
-
-
-
-max_epochs = 5000
-
-multiSet = MultiSet('pokemon')
-dataLoader = Utils.DataLoader(dataset=multiSet, shuffle=True, batch_size=BATCH_SIZE)
-
-train_losses, bces, kls = train(net, optimizer, scheduler, dataLoader, epoch, "POKEVAE", losses, bces, kls, max_epochs)
+if __name__ == '__main__':
+    main()
