@@ -32,9 +32,9 @@ def main():
         print("Starting new training")
 
     multiSet = MultiSet(args.data)
-    dataLoader = Utils.DataLoader(dataset=multiSet, shuffle=True, batch_size=args.batch_size)
 
-    train_losses, bces, kls = train(net, optimizer, scheduler, dataLoader, epoch, args.label, losses, bces, kls, args.epochs)
+    train_losses, bces, kls = train(net, optimizer, scheduler, multiSet, args.batch_size, epoch, args.label, losses, bces, kls, args.epochs)
+    generate_animation("data/", args.label)
     print("Training completed!")
 
     

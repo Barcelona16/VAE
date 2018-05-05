@@ -18,6 +18,23 @@ class MultiSet(Utils.Dataset):
         return data
 
     
+def data_train(model, image, epoch):
+    x_in = Variable(torch.FloatTensor(image).unsqueeze(0).permute(0,3,1,2).cuda())
+    x_out, _, _ = model(x_in)
+    im = np.floor(x_out.permute(0,2,3,1).data.cpu().squeeze().numpy()*255).astype(np.uint8)
+    plt.imsave("data/img_{:04d}".format(epoch//10) + ".png", im)
+    print("Saved checkpoint image")
+
+
+def generate_animation(path, label):
+    images = []
+    files = sorted(os.listdir(path))
+    for file in files:
+        if file[-4:] == '.png':
+            images.append(mpimg.imread(path + file))
+    imageio.mimsave(path + label + '_animation.gif', images, fps=15)
+
+    
 def gen_data_list():
     if not os.path.isfile('pokelist'):
         if os.path.exists('./Pokemon') and os.path.exists('./PokemonFlip'):
@@ -83,7 +100,7 @@ def multi_plot(images, model, ROW=4, COL=4):
                 image = images[col+(COL*row),:,:,:].unsqueeze(0)
                 axarr[2*row,col].imshow(image.squeeze().numpy())
                 image = image.permute(0,3,1,2)
-                x_out, z_mean, z_logvar = model(Variable(image.float().cuda()))
+                x_out, _, _ = model(Variable(image.float().cuda()))
                 x_out = x_out.permute(0,2,3,1)
                 axarr[2*row+1,col].imshow(x_out.data.cpu().squeeze().numpy())
         plt.show()
@@ -91,7 +108,7 @@ def multi_plot(images, model, ROW=4, COL=4):
         pass
 
 
-def criterion(x_out, target, z_mean, z_logvar, alpha=1, beta=20):
+def criterion(x_out, target, z_mean, z_logvar, alpha=1, beta=5):
     """
     Criterion for VAE done analytically
     output: loss
@@ -104,7 +121,9 @@ def criterion(x_out, target, z_mean, z_logvar, alpha=1, beta=20):
     return loss, bce, kl
 
 
-def train(model, optimizer, scheduler, dataloader, epoch, label, losses, bces, kls, max_epochs):
+def train(model, optimizer, scheduler, multiSet, batch_size, epoch, label, losses, bces, kls, max_epochs):
+    dataloader = Utils.DataLoader(dataset=multiSet, shuffle=True, batch_size=batch_size)
+    
     step = 0
     for _ in range(max_epochs):
         for images in dataloader:
@@ -112,7 +131,9 @@ def train(model, optimizer, scheduler, dataloader, epoch, label, losses, bces, k
             
             image_in = images.permute(0,3,1,2)
             x_in = Variable(image_in.float().cuda())
+            
             x_out, z_mu, z_logvar = model(x_in)
+            
             loss, bce, kl = criterion(x_out, x_in, z_mu, z_logvar)
             loss.backward()
             scheduler.step()
@@ -121,8 +142,16 @@ def train(model, optimizer, scheduler, dataloader, epoch, label, losses, bces, k
             bces.append(bce.item())
             kls.append(kl.item())
             
-            if epoch%10 == 0 and epoch != 0:
-                save_file = "checkpoints/" + label + "_epoch_{:06d}".format(epoch) + '.pth'
+            step += 1
+        epoch += 1
+        
+        clear_output(wait=True)
+        print("Epoch:", epoch, '- Loss: {:3f}'.format(loss.item()))
+        multi_plot(images, model)
+        
+        if epoch%10 == 0:
+            save_file = "checkpoints/" + label + "_epoch_{:06d}".format(epoch) + '.pth'
+            if not os.path.isfile(save_file):
                 torch.save({
                     'epoch': epoch,
                     'state_dict': model.state_dict(),
@@ -133,12 +162,7 @@ def train(model, optimizer, scheduler, dataloader, epoch, label, losses, bces, k
                     'cs' : step
                 }, save_file)
                 print("Saved checkpoint")
-                
-            step += 1
-        epoch += 1
-        clear_output(wait=True)
-        print("Epoch:", epoch, '- Loss: {:3f}'.format(loss.item()))
-        multi_plot(images, model)
+            data_train(model, multiSet[0], epoch)
     return losses, bces, kls
 
 
