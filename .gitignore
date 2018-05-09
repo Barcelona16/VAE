@@ -3,3 +3,5 @@ PokemonFlip/
 __pycache__/
 checkpoints/
 data/
+sweep/
+pokelist

@@ -1,5 +1,14 @@
 from model import *
 
+if not os.path.isdir('sweep'):
+    os.system('mkdir sweep')
+
+if not os.path.isdir('data'):
+    os.system('mkdir data')
+
+if not os.path.isdir('checkpoints'):
+    os.system('mkdir checkpoints')
+    
 
 class MultiSet(Utils.Dataset):
     """
@@ -39,6 +48,17 @@ def generate_animation(path, label):
             images.append(mpimg.imread(path + file))
     imageio.mimsave(path + label + '_animation.gif', images, fps=15)
 
+    
+def sweep(image, dim, min_range, max_range, step):
+    z_mean, z_logvar = net.encoder(Variable(image.permute(0,3,1,2).float().cuda()))
+    z = net.latent(z_mean,z_logvar)
+    for i in range(min_range, max_range, step):
+        z[0][dim] = i
+        x_out = net.decoder(z)
+        im = np.floor(x_out.permute(0,2,3,1).data.cpu().squeeze().long().numpy()*255)
+        plt.imsave("sweep/sw_{:03d}".format(i+max_range) + ".png", im)
+    generate_animation("sweep/", "dim_sweep")
+    
     
 def gen_data_list():
     if not os.path.isfile('pokelist'):
@@ -113,7 +133,7 @@ def multi_plot(images, model, ROW=4, COL=4):
         pass
 
 
-def criterion(x_out, target, z_mean, z_logvar, alpha=1, beta=2):
+def criterion(x_out, target, z_mean, z_logvar, alpha=1, beta=0.5):
     """
     Criterion for VAE done analytically
     output: loss

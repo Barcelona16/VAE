@@ -15,12 +15,6 @@ def main():
     
     gen_data_list()
     
-    if not os.path.isdir('data'):
-        os.system('mkdir data')
-        
-    if not os.path.isdir('checkpoints'):
-        os.system('mkdir checkpoints')
-    
     try:
         net, epoch, losses, bces, kls, optimizer, scheduler = load_checkpoint("./checkpoints/" + args.checkpoint, args.learn_rate)
     except:

@@ -21,8 +21,8 @@ import imageio
 from IPython.display import clear_output
 
 
-RESIZE = 128
-BATCH_SIZE = 256
+RESIZE = 256
+BATCH_SIZE = 128
 
 
 
