@@ -15,6 +15,12 @@ def main():
     
     gen_data_list()
     
+    if not os.path.isdir('data'):
+        os.system('mkdir data')
+        
+    if not os.path.isdir('checkpoints'):
+        os.system('mkdir checkpoints')
+    
     try:
         net, epoch, losses, bces, kls, optimizer, scheduler = load_checkpoint("./checkpoints/" + args.checkpoint, args.learn_rate)
     except:
@@ -32,8 +38,9 @@ def main():
         print("Starting new training")
 
     multiSet = MultiSet(args.data)
-
-    train_losses, bces, kls = train(net, optimizer, scheduler, multiSet, args.batch_size, epoch, args.label, losses, bces, kls, args.epochs)
+    dataloader = Utils.DataLoader(dataset=multiSet, shuffle=True, batch_size=args.batch_size)
+    
+    train_losses, bces, kls = train(net, optimizer, scheduler, dataloader, epoch, args.label, losses, bces, kls, args.epochs)
     generate_animation("data/", args.label)
     print("Training completed!")
 

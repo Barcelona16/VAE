@@ -18,12 +18,17 @@ class MultiSet(Utils.Dataset):
         return data
 
     
-def data_train(model, image, epoch):
-    x_in = Variable(torch.FloatTensor(image).unsqueeze(0).permute(0,3,1,2).cuda())
-    x_out, _, _ = model(x_in)
-    im = np.floor(x_out.permute(0,2,3,1).data.cpu().squeeze().numpy()*255).astype(np.uint8)
-    plt.imsave("data/img_{:04d}".format(epoch//10) + ".png", im)
-    print("Saved checkpoint image")
+def data_train(model, path, epoch):
+    try:
+        data = mpimg.imread(path)
+        data = cv2.resize(data, (RESIZE,RESIZE))/255
+        x_in = Variable(torch.FloatTensor(data).unsqueeze(0).permute(0,3,1,2).cuda())
+        x_out, _, _ = model(x_in)
+        im = np.floor(x_out.permute(0,2,3,1).data.cpu().squeeze().numpy()*255).astype(np.uint8)
+        plt.imsave("data/img_{:04d}".format(epoch//10) + ".png", im)
+        print("Saved checkpoint image")
+    except:
+        pass
 
 
 def generate_animation(path, label):
@@ -108,7 +113,7 @@ def multi_plot(images, model, ROW=4, COL=4):
         pass
 
 
-def criterion(x_out, target, z_mean, z_logvar, alpha=1, beta=5):
+def criterion(x_out, target, z_mean, z_logvar, alpha=1, beta=2):
     """
     Criterion for VAE done analytically
     output: loss
@@ -121,8 +126,7 @@ def criterion(x_out, target, z_mean, z_logvar, alpha=1, beta=5):
     return loss, bce, kl
 
 
-def train(model, optimizer, scheduler, multiSet, batch_size, epoch, label, losses, bces, kls, max_epochs):
-    dataloader = Utils.DataLoader(dataset=multiSet, shuffle=True, batch_size=batch_size)
+def train(model, optimizer, scheduler, dataloader, epoch, label, losses, bces, kls, max_epochs):
     
     step = 0
     for _ in range(max_epochs):
@@ -162,7 +166,7 @@ def train(model, optimizer, scheduler, multiSet, batch_size, epoch, label, losse
                     'cs' : step
                 }, save_file)
                 print("Saved checkpoint")
-            data_train(model, multiSet[0], epoch)
+            data_train(model, "/home/ubuntu/VAE/Pokemon/charizard.jpg", epoch)
     return losses, bces, kls
 
 
