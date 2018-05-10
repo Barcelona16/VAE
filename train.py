@@ -8,7 +8,52 @@ parser.add_argument('--batch_size', '-bs', default=256, type=int, help='Mini-bat
 parser.add_argument('--learn_rate', '-lr', default=1e-3, type=int, help='Learning rate (default: 1e-3)')
 parser.add_argument('--label', '-l', default='VAE', help='Experiment name', type=str)
 parser.add_argument('--checkpoint', '-cp', default=None, type=str, help='Checkpoint name')
-  
+
+
+
+def train(model, optimizer, scheduler, dataloader, epoch, label, losses, bces, kls, max_epochs):
+    step = 0
+    for _ in range(max_epochs):
+        for images in dataloader:
+            optimizer.zero_grad()
+            
+            image_in = images.permute(0,3,1,2)
+            x_in = Variable(image_in.float().cuda())
+            
+            x_out, z_mu, z_logvar = model(x_in)
+            
+            loss, bce, kl = criterion(x_out, x_in, z_mu, z_logvar)
+            loss.backward()
+            scheduler.step()
+            optimizer.step()
+            losses.append(loss.item())
+            bces.append(bce.item())
+            kls.append(kl.item())
+            
+            step += 1
+        epoch += 1
+        
+        clear_output(wait=True)
+        print("Epoch:", epoch, '- Loss: {:3f}'.format(loss.item()))
+        multi_plot(images, model)
+        
+        if epoch%10 == 0:
+            save_file = "checkpoints/" + label + "_epoch_{:06d}".format(epoch) + '.pth'
+            if not os.path.isfile(save_file):
+                torch.save({
+                    'epoch': epoch,
+                    'state_dict': model.state_dict(),
+                    'optimizer' : optimizer.state_dict(),
+                    'losses' : losses,
+                    'bces' : bces,
+                    'kls' : kls,
+                    'cs' : step
+                }, save_file)
+                print("Saved checkpoint")
+            data_train(model, "/home/ubuntu/VAE/Pokemon/charizard.jpg", epoch)
+    return losses, bces, kls
+
+
 
 def main():
     args = parser.parse_args()

@@ -49,27 +49,21 @@ def generate_animation(path, label):
     imageio.mimsave(path + label + '_animation.gif', images, fps=15)
 
     
-def sweep(image, dim, min_range, max_range, step):
+def sweep(net, image, dim, min_range, max_range, step):
     z_mean, z_logvar = net.encoder(Variable(image.permute(0,3,1,2).float().cuda()))
     z = net.latent(z_mean,z_logvar)
     for i in range(min_range, max_range, step):
         z[0][dim] = i
         x_out = net.decoder(z)
-        im = np.floor(x_out.permute(0,2,3,1).data.cpu().squeeze().long().numpy()*255)
+        im = np.floor(x_out.type(torch.LongTensor).permute(0,2,3,1).data.cpu().squeeze().numpy())*255
+        print(im)
         plt.imsave("sweep/sw_{:03d}".format(i+max_range) + ".png", im)
     generate_animation("sweep/", "dim_sweep")
     
     
 def gen_data_list():
     if not os.path.isfile('pokelist'):
-        if os.path.exists('./Pokemon') and os.path.exists('./PokemonFlip'):
-            with open("pokelist", 'w') as myfile:
-                wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
-                data = [os.path.abspath("./Pokemon/")+"/"+file for file in os.listdir("./Pokemon/")]
-                data += [os.path.abspath("./PokemonFlip/")+"/"+file for file in os.listdir("./PokemonFlip/")]
-                wr.writerow(data)
-            print("Generated list of Pokemon image paths, both normal and flipped")
-        elif os.path.exists('./Pokemon'):
+        if os.path.exists('./Pokemon'):
             with open("pokelist", 'w') as myfile:
                 wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
                 data = [os.path.abspath("./Pokemon/")+"/"+file for file in os.listdir("./Pokemon/")]
@@ -144,50 +138,6 @@ def criterion(x_out, target, z_mean, z_logvar, alpha=1, beta=0.5):
     kl = -0.5 * torch.sum(1 + z_logvar - (z_mean**2) - torch.exp(z_logvar)) #Analytical KL Divergence - Assumes p(z) is Gaussian Distribution
     loss = ((alpha * bce) + (beta * kl)) / x_out.size(0)    
     return loss, bce, kl
-
-
-def train(model, optimizer, scheduler, dataloader, epoch, label, losses, bces, kls, max_epochs):
-    
-    step = 0
-    for _ in range(max_epochs):
-        for images in dataloader:
-            optimizer.zero_grad()
-            
-            image_in = images.permute(0,3,1,2)
-            x_in = Variable(image_in.float().cuda())
-            
-            x_out, z_mu, z_logvar = model(x_in)
-            
-            loss, bce, kl = criterion(x_out, x_in, z_mu, z_logvar)
-            loss.backward()
-            scheduler.step()
-            optimizer.step()
-            losses.append(loss.item())
-            bces.append(bce.item())
-            kls.append(kl.item())
-            
-            step += 1
-        epoch += 1
-        
-        clear_output(wait=True)
-        print("Epoch:", epoch, '- Loss: {:3f}'.format(loss.item()))
-        multi_plot(images, model)
-        
-        if epoch%10 == 0:
-            save_file = "checkpoints/" + label + "_epoch_{:06d}".format(epoch) + '.pth'
-            if not os.path.isfile(save_file):
-                torch.save({
-                    'epoch': epoch,
-                    'state_dict': model.state_dict(),
-                    'optimizer' : optimizer.state_dict(),
-                    'losses' : losses,
-                    'bces' : bces,
-                    'kls' : kls,
-                    'cs' : step
-                }, save_file)
-                print("Saved checkpoint")
-            data_train(model, "/home/ubuntu/VAE/Pokemon/charizard.jpg", epoch)
-    return losses, bces, kls
 
 
 ### The following was taken from https://github.com/A-Jacobson/tacotron2
