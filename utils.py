@@ -50,13 +50,13 @@ def generate_animation(path, label):
 
     
 def sweep(net, image, dim, min_range, max_range, step):
+    ### NEEDS TO BE FIXED
     z_mean, z_logvar = net.encoder(Variable(image.permute(0,3,1,2).float().cuda()))
     z = net.latent(z_mean,z_logvar)
     for i in range(min_range, max_range, step):
         z[0][dim] = i
         x_out = net.decoder(z)
-        im = np.floor(x_out.type(torch.LongTensor).permute(0,2,3,1).data.cpu().squeeze().numpy())*255
-        print(im)
+        im = np.floor(x_out.type(torch.LongTensor).permute(0,2,3,1).data.cpu().squeeze().numpy())
         plt.imsave("sweep/sw_{:03d}".format(i+max_range) + ".png", im)
     generate_animation("sweep/", "dim_sweep")
     
