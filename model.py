@@ -74,9 +74,9 @@ class Net(nn.Module):
             encoder: z = mu + sd * e
             input: mean, logvar. output: z
         '''
-        sd = torch.exp(z_logvar * 0.5)
+        sd = torch.exp(z_logvar * 0.5) # Standard deviation of the latent Gaussian
         e = Variable(torch.randn(sd.size()).cuda())
-        z = e.mul(sd).add_(z_mu)
+        z = e.mul(sd).add_(z_mu) # 完成了采样操作可导
         return z 
     
     def decoder(self, z):
